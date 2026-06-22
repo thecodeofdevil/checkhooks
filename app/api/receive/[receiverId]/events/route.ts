@@ -5,25 +5,27 @@ import { clearReceiverEvents, deleteReceiverEvent, getReceiverEvents } from "../
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request, { params }: { params: { receiverId: string } }) {
-  const receiverId = params.receiverId;
+type RouteContext = { params: Promise<{ receiverId: string }> };
+
+export async function GET(request: Request, { params }: RouteContext) {
+  const { receiverId } = await params;
   if (!receiverId) {
     return NextResponse.json({ error: "Receiver ID required." }, { status: 400 });
   }
 
-  const session = getCurrentSession();
+  const session = await getCurrentSession();
   const events = session ? await listHookEvents(session.email, receiverId) : getReceiverEvents(receiverId);
   return NextResponse.json({ events }, { headers: { "Cache-Control": "no-store" } });
 }
 
-export async function DELETE(request: Request, { params }: { params: { receiverId: string } }) {
-  const receiverId = params.receiverId;
+export async function DELETE(request: Request, { params }: RouteContext) {
+  const { receiverId } = await params;
   if (!receiverId) {
     return NextResponse.json({ error: "Receiver ID required." }, { status: 400 });
   }
 
   const eventId = Number(new URL(request.url).searchParams.get("eventId"));
-  const session = getCurrentSession();
+  const session = await getCurrentSession();
   if (Number.isFinite(eventId) && eventId > 0) {
     if (session) {
       await deleteHookEvent(session.email, receiverId, eventId);

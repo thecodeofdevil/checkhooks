@@ -6,7 +6,7 @@ import { deleteDataCenterRow, listDataCenterRows } from "../../../lib/data-cente
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const session = getCurrentSession();
+  const session = await getCurrentSession();
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
   if (session.plan !== "pro") return NextResponse.json({ error: "Data Center is available on Pro." }, { status: 403 });
 
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const session = getCurrentSession();
+  const session = await getCurrentSession();
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
   if (session.plan !== "pro") return NextResponse.json({ error: "Data Center is available on Pro." }, { status: 403 });
 

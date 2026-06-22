@@ -5,8 +5,8 @@ import { AdminShell } from "@/components/admin-shell";
 import { getAdminSession } from "@/lib/admin";
 import { CheckhooksLogo } from "@/components/checkhooks-logo";
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const admin = getAdminSession();
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const admin = await getAdminSession();
 
   if (!admin) {
     return (

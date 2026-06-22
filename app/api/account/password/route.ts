@@ -4,7 +4,7 @@ import { getCurrentSession } from "../../../../lib/auth";
 import { findUserByEmail, updateUserPassword, validatePassword, verifyPassword } from "../../../../lib/users";
 
 export async function POST(request: Request) {
-  const session = getCurrentSession();
+  const session = await getCurrentSession();
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
 
   let payload: { currentPassword?: string; newPassword?: string } = {};

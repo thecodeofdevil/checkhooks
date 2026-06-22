@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   try {
     const user = await createUser(email, password, PRO_PRICE_USD);
     const session = { email, firstName: user.firstName, lastName: user.lastName, plan: "free" as const, planPrice: PRO_PRICE_USD };
-    setSessionCookie(session);
+    await setSessionCookie(session);
     await logUserActivity({ email, type: "signup", plan: session.plan });
     return NextResponse.json({ user: session });
   } catch (error) {

@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Receiver ID required." }, { status: 400 });
   }
 
-  const session = getCurrentSession();
+  const session = await getCurrentSession();
   const usage = await registerReceiver(payload.receiverId, session ? { email: session.email, plan: session.plan } : undefined);
   if (session) {
     await logUserActivity({ email: session.email, type: "receiver_registered", plan: session.plan, receiverId: payload.receiverId });

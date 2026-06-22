@@ -5,7 +5,7 @@ import { getCurrentSession, PRO_PRICE_USD, setSessionCookie } from "../../../../
 import { updateUserPlan } from "../../../../lib/users";
 
 export async function POST() {
-  const session = getCurrentSession();
+  const session = await getCurrentSession();
   if (!session) {
     return NextResponse.json({ error: "Login required before subscribing." }, { status: 401 });
   }
@@ -15,7 +15,7 @@ export async function POST() {
     plan: "pro" as const,
     planPrice: PRO_PRICE_USD,
   };
-  setSessionCookie(updatedSession);
+  await setSessionCookie(updatedSession);
   await updateUserPlan(updatedSession.email, updatedSession.plan, updatedSession.planPrice);
   await logUserActivity({ email: updatedSession.email, type: "subscribe", plan: updatedSession.plan, metadata: { priceUsd: PRO_PRICE_USD } });
 

@@ -4,7 +4,7 @@ import { getCurrentSession, setSessionCookie } from "../../../../lib/auth";
 import { updateUserProfile } from "../../../../lib/users";
 
 export async function POST(request: Request) {
-  const session = getCurrentSession();
+  const session = await getCurrentSession();
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
 
   let payload: { firstName?: string; lastName?: string } = {};
@@ -22,6 +22,6 @@ export async function POST(request: Request) {
 
   await updateUserProfile(session.email, { firstName, lastName });
   const user = { ...session, firstName, lastName };
-  setSessionCookie(user);
+  await setSessionCookie(user);
   return NextResponse.json({ user });
 }

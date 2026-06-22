@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   }
 
   const session = { email, firstName: user.firstName, lastName: user.lastName, plan: user.plan, planPrice: user.planPrice || PRO_PRICE_USD };
-  setSessionCookie(session);
+  await setSessionCookie(session);
   await markUserLoggedIn(email);
   await logUserActivity({ email, type: "login", plan: session.plan });
   return NextResponse.json({ user: session });

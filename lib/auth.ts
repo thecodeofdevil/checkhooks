@@ -65,12 +65,12 @@ export function readSessionToken(token?: string | null): UserSession | null {
   }
 }
 
-export function getCurrentSession() {
-  return readSessionToken(cookies().get(AUTH_COOKIE)?.value);
+export async function getCurrentSession() {
+  return readSessionToken((await cookies()).get(AUTH_COOKIE)?.value);
 }
 
-export function setSessionCookie(session: UserSession) {
-  cookies().set(AUTH_COOKIE, createSessionToken(session), {
+export async function setSessionCookie(session: UserSession) {
+  (await cookies()).set(AUTH_COOKIE, createSessionToken(session), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -79,8 +79,8 @@ export function setSessionCookie(session: UserSession) {
   });
 }
 
-export function clearSessionCookie() {
-  cookies().delete(AUTH_COOKIE);
+export async function clearSessionCookie() {
+  (await cookies()).delete(AUTH_COOKIE);
 }
 
 export function normalizeEmail(value: unknown) {

@@ -4,8 +4,10 @@ import { getReceiverEvents, subscribeReceiverEvents } from "../../../../../lib/r
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export async function GET(request: Request, { params }: { params: { receiverId: string } }) {
-  const receiverId = params.receiverId;
+type RouteContext = { params: Promise<{ receiverId: string }> };
+
+export async function GET(request: Request, { params }: RouteContext) {
+  const { receiverId } = await params;
   if (!receiverId) {
     return NextResponse.json({ error: "Receiver ID required." }, { status: 400 });
   }

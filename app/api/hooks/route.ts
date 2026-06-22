@@ -73,7 +73,7 @@ function sanitizeDataCenterFields(value: unknown): DataCenterField[] {
 }
 
 export async function GET() {
-  const session = getCurrentSession();
+  const session = await getCurrentSession();
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
 
   const hooks = await listUserHooks(session.email);
@@ -81,7 +81,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const session = getCurrentSession();
+  const session = await getCurrentSession();
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
 
   const payload = await request.json().catch(() => null);
@@ -129,7 +129,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const session = getCurrentSession();
+  const session = await getCurrentSession();
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });
 
   const { searchParams } = new URL(request.url);

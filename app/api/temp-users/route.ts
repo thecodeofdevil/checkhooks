@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  const session = getCurrentSession();
+  const session = await getCurrentSession();
   if (session) return NextResponse.json({ skipped: true, reason: "logged_in" });
   if (!payload.id || typeof payload.id !== "string" || !payload.receiverId || typeof payload.receiverId !== "string") {
     return NextResponse.json({ error: "Temp user id and receiver id required." }, { status: 400 });

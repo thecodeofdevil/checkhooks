@@ -158,24 +158,29 @@ async function handleReceiver(request: Request, receiverId: string) {
   });
 }
 
-type RouteContext = { params: { receiverId: string } };
+type RouteContext = { params: Promise<{ receiverId: string }> };
 
 export async function GET(request: Request, { params }: RouteContext) {
-  return handleReceiver(request, params.receiverId);
+  const { receiverId } = await params;
+  return handleReceiver(request, receiverId);
 }
 
 export async function POST(request: Request, { params }: RouteContext) {
-  return handleReceiver(request, params.receiverId);
+  const { receiverId } = await params;
+  return handleReceiver(request, receiverId);
 }
 
 export async function PUT(request: Request, { params }: RouteContext) {
-  return handleReceiver(request, params.receiverId);
+  const { receiverId } = await params;
+  return handleReceiver(request, receiverId);
 }
 
 export async function PATCH(request: Request, { params }: RouteContext) {
-  return handleReceiver(request, params.receiverId);
+  const { receiverId } = await params;
+  return handleReceiver(request, receiverId);
 }
 
 export async function DELETE(request: Request, { params }: RouteContext) {
-  return handleReceiver(request, params.receiverId);
+  const { receiverId } = await params;
+  return handleReceiver(request, receiverId);
 }

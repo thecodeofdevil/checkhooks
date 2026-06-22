@@ -4,7 +4,7 @@ import { getCurrentSession, PRO_PRICE_USD, setSessionCookie } from "../../../../
 import { findUserByEmail } from "../../../../lib/users";
 
 export async function GET() {
-  const session = getCurrentSession();
+  const session = await getCurrentSession();
   let user = session;
 
   if (session) {
@@ -17,7 +17,7 @@ export async function GET() {
         plan: storedUser.plan,
         planPrice: storedUser.planPrice || PRO_PRICE_USD,
       };
-      setSessionCookie(user);
+      await setSessionCookie(user);
     }
   }
 

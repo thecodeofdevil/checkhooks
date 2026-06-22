@@ -254,8 +254,8 @@ function ProductPreview() {
   );
 }
 
-export default function LandingPage() {
-  const session = getCurrentSession();
+export default async function LandingPage() {
+  const session = await getCurrentSession();
 
   return (
     <main className="theme-page overflow-hidden bg-[#f7f5f2] text-[#151515]">

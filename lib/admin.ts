@@ -40,8 +40,8 @@ export function isSuperAdmin(email?: string | null) {
   return getAdminEmails().includes(email.toLowerCase());
 }
 
-export function getAdminSession(): AdminSession | null {
-  const session = getCurrentSession();
+export async function getAdminSession(): Promise<AdminSession | null> {
+  const session = await getCurrentSession();
   if (!session || !isSuperAdmin(session.email)) return null;
   return { email: session.email, plan: session.plan };
 }

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { getReceiverResponseConfig, setReceiverResponseConfig, updateReceiverRateLimit } from "../../../../../lib/receiver-store";
 
-export async function GET(request: Request, { params }: { params: { receiverId: string } }) {
-  const receiverId = params.receiverId;
+type RouteContext = { params: Promise<{ receiverId: string }> };
+
+export async function GET(request: Request, { params }: RouteContext) {
+  const { receiverId } = await params;
   if (!receiverId) {
     return NextResponse.json({ error: "Receiver ID required." }, { status: 400 });
   }
@@ -10,8 +12,8 @@ export async function GET(request: Request, { params }: { params: { receiverId: 
   return NextResponse.json(await getReceiverResponseConfig(receiverId));
 }
 
-export async function POST(request: Request, { params }: { params: { receiverId: string } }) {
-  const receiverId = params.receiverId;
+export async function POST(request: Request, { params }: RouteContext) {
+  const { receiverId } = await params;
   if (!receiverId) {
     return NextResponse.json({ error: "Receiver ID required." }, { status: 400 });
   }
