@@ -487,7 +487,7 @@ export default function AppPage() {
       socket.onmessage = (message) => {
         try {
           const payload = JSON.parse(message.data);
-          if (user && payload.event === "init" && Array.isArray(payload.data?.events)) {
+          if (payload.event === "init" && Array.isArray(payload.data?.events)) {
             applyEvents(payload.data.events);
           }
           if (payload.event === "event") {

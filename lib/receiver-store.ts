@@ -407,9 +407,7 @@ export function appendReceiverEvent(receiverId: string, event: Omit<ReceivedEven
     ...event,
   };
 
-  if (options?.persist !== false) {
-    receiverStore.set(receiverId, [nextEvent, ...existing].slice(0, 50));
-  }
+  receiverStore.set(receiverId, [nextEvent, ...existing].slice(0, 50));
   const subscribers = receiverSubscribers.get(receiverId);
   if (subscribers) {
     subscribers.forEach((listener) => listener(nextEvent));
