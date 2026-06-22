@@ -1,0 +1,20 @@
+services:
+  checkhooks:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: checkhooks
+    restart: unless-stopped
+    env_file:
+      - .env.local
+    environment:
+      NODE_ENV: production
+      PORT: 8066
+    ports:
+      - "8066:8066"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8066').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

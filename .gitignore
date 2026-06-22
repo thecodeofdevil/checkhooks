@@ -1,0 +1,44 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+
+# production
+build/
+dist/
+
+# env files
+.env
+.env*.local
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# runtime
+*.pid
+*.seed
+*.pid.lock
+
+# testing
+coverage/
+
+# cache
+.turbo/
+.vercel/
+
+# docker
+docker-compose.override.yml
+
+# os/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# misc
+*.pem
