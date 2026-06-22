@@ -22,6 +22,9 @@ function sendJson(socket: WebSocket, event: string, data: unknown) {
 async function main() {
   await app.prepare();
 
+  // Vercel does not run this custom HTTP upgrade server. The app uses
+  // /api/receive/:receiverId/stream (SSE) on Vercel and this WebSocket server
+  // for local/self-hosted deployments.
   const server = createServer((request, response) => {
     handle(request, response);
   });

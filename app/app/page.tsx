@@ -473,6 +473,7 @@ export default function AppPage() {
     if (!receiverId || !origin) return;
     let disposed = false;
     let socket: WebSocket | null = null;
+    let eventSource: EventSource | null = null;
     let reconnectTimer: number | undefined;
 
     const applyEvents = (events: IncomingEvent[]) => {
@@ -481,34 +482,66 @@ export default function AppPage() {
       setSelectedEvent((current) => current ? events.find((event) => event.id === current.id) ?? null : null);
     };
 
+    const applyRealtimeMessage = (eventName: string, data: unknown) => {
+      if (eventName === "init" && Array.isArray((data as { events?: unknown[] })?.events)) {
+        applyEvents((data as { events: IncomingEvent[] }).events);
+      }
+      if (eventName === "event") {
+        const event = data as IncomingEvent;
+        setIncoming((current) => current.some((item) => item.id === event.id) ? current : [event, ...current].slice(0, 50));
+        void refreshQuota();
+      }
+    };
+
+    const connectStream = () => {
+      if (disposed) return;
+      eventSource?.close();
+      eventSource = new EventSource(`/api/receive/${encodeURIComponent(receiverId)}/stream`);
+      eventSource.addEventListener("init", (message) => {
+        try {
+          applyRealtimeMessage("init", JSON.parse(message.data));
+        } catch {}
+      });
+      eventSource.addEventListener("event", (message) => {
+        try {
+          applyRealtimeMessage("event", JSON.parse(message.data));
+        } catch {}
+      });
+      eventSource.onerror = () => {
+        if (disposed) eventSource?.close();
+      };
+    };
+
     const connectSocket = () => {
       if (disposed) return;
       socket = new WebSocket(`${origin.replace(/^http/, "ws")}/socket/receive/${receiverId}`);
       socket.onmessage = (message) => {
         try {
           const payload = JSON.parse(message.data);
-          if (payload.event === "init" && Array.isArray(payload.data?.events)) {
-            applyEvents(payload.data.events);
-          }
-          if (payload.event === "event") {
-            const data = payload.data as IncomingEvent;
-            setIncoming((current) => current.some((item) => item.id === data.id) ? current : [data, ...current].slice(0, 50));
-            void refreshQuota();
-          }
+          applyRealtimeMessage(payload.event, payload.data);
         } catch {}
       };
       socket.onclose = () => {
         if (disposed) return;
-        reconnectTimer = window.setTimeout(connectSocket, 1500);
+        reconnectTimer = window.setTimeout(connectStream, 500);
+      };
+      socket.onerror = () => {
+        socket?.close();
       };
     };
 
-    connectSocket();
+    const shouldUseStream = window.location.hostname.includes("vercel.app") || window.location.protocol === "https:";
+    if (shouldUseStream) {
+      connectStream();
+    } else {
+      connectSocket();
+    }
 
     return () => {
       disposed = true;
       if (reconnectTimer) window.clearTimeout(reconnectTimer);
       socket?.close();
+      eventSource?.close();
     };
   }, [receiverId, origin, user]);
 
