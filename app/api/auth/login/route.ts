@@ -4,6 +4,9 @@ import { logUserActivity } from "../../../../lib/activity-log";
 import { normalizeEmail, PRO_PRICE_USD, setSessionCookie } from "../../../../lib/auth";
 import { findUserByEmail, markUserLoggedIn, validatePassword, verifyPassword } from "../../../../lib/users";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function POST(request: Request) {
   let payload: { email?: string; password?: string } = {};
 
@@ -24,10 +27,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: passwordError }, { status: 400 });
   }
 
-  const user = await findUserByEmail(email);
-  if (!user || !verifyPassword(password, user.passwordHash)) {
-    return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
+  let user;
+  try {
+    user = await findUserByEmail(email);
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to access user database." }, { status: 503 });
   }
+  if (!user || !verifyPassword(password, user.passwordHash)) return NextResponse.json({ error: "Invalid email or password." }, { status: 401 });
 
   const session = { email, firstName: user.firstName, lastName: user.lastName, plan: user.plan, planPrice: user.planPrice || PRO_PRICE_USD };
   await setSessionCookie(session);

@@ -79,8 +79,8 @@ export function AdminShell({ adminEmail, title, eyebrow = "Super admin", childre
             </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-            <span className="rounded-2xl bg-[#143c2e] px-3 py-2 font-bold text-[#73e2b5]">Mongo CRM</span>
-            <span className="rounded-2xl bg-[#332116] px-3 py-2 font-bold text-[#ffb071]">Realtime ops</span>
+            <span className="rounded-2xl bg-[#143c2e] px-3 py-2 font-bold text-[#73e2b5]">Data ops</span>
+            <span className="rounded-2xl bg-[#332116] px-3 py-2 font-bold text-[#ffb071]">Billing ops</span>
           </div>
         </div>
 

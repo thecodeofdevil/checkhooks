@@ -1,21 +1,32 @@
 import Link from "next/link";
-import { Activity, CreditCard, Server, Users } from "lucide-react";
+import { Activity, CreditCard, Server, TrendingUp } from "lucide-react";
 
 import { AdminPanel, EmptyState, formatDate, MetricCard, MiniBarChart, StatusPill } from "./admin-ui";
-import { getAdminOverview } from "@/lib/admin";
+import { getAdminOverview, getAdminPayments } from "@/lib/admin";
+
+function money(value: number) {
+  return `$${value.toLocaleString("en", { maximumFractionDigits: 2 })}`;
+}
 
 export default async function AdminDashboardPage() {
-  const overview = await getAdminOverview();
+  const [overview, billing] = await Promise.all([getAdminOverview(), getAdminPayments()]);
 
   return (
     <div className="space-y-6">
-      {!overview.connected ? <EmptyState title="MongoDB is not connected" text="Add MONGODB_URI to load live CRM users, activity history, payment events, and receiver metrics." /> : null}
+      {!overview.connected ? <EmptyState title="Data Collection is not connected" text="Add Data Collection settings to load live CRM users, activity history, payment events, and receiver metrics." /> : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Total users" value={overview.cards.totalUsers} detail="All accounts created in MongoDB." tone="black" />
+        <MetricCard label="Total users" value={overview.cards.totalUsers} detail="All accounts created in Data Collection." tone="black" />
+        <MetricCard label="Active Pro users" value={overview.cards.currentMonthActiveProUsers} detail="Pro clients active in the current month." tone="green" />
+        <MetricCard label="Month payments" value={money(overview.cards.currentMonthRevenue)} detail={`${billing.totals.currentMonthPayments} Pro payments received this month.`} tone="orange" />
+        <MetricCard label="Total received" value={money(overview.cards.totalRevenue)} detail={`${overview.cards.paymentCount} verified payment events.`} tone="blue" />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Current Pro users" value={overview.cards.proUsers} detail={`${overview.cards.freeUsers} free users remain.`} tone="orange" />
+        <MetricCard label="MRR estimate" value={money(overview.cards.planRevenue)} detail="Current Pro users multiplied by plan price." tone="black" />
         <MetricCard label="Active users" value={overview.cards.activeUsers} detail="Users with a login in the last 7 days." tone="green" />
-        <MetricCard label="Temp users" value={overview.cards.tempUsers} detail="Anonymous workspaces active in Redis." tone="blue" />
-        <MetricCard label="Plan revenue" value={`$${overview.cards.planRevenue}`} detail="Estimated monthly plan revenue." tone="orange" />
+        <MetricCard label="Temp users" value={overview.cards.tempUsers} detail="Anonymous workspaces active in Cache Storage." tone="blue" />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
@@ -27,8 +38,35 @@ export default async function AdminDashboardPage() {
         </AdminPanel>
       </div>
 
+      <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+        <AdminPanel title="Client payment leaderboard" description="How much each client has paid till now." action={<Link href="/admin/payments" className="rounded-xl bg-[#151515] px-4 py-2 text-sm font-bold text-white">Open payments</Link>}>
+          <div className="space-y-3">
+            {billing.clientTotals.length ? billing.clientTotals.slice(0, 6).map((client) => (
+              <div key={client.email} className="grid gap-3 rounded-2xl bg-[#fbfaf8] p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+                <div className="min-w-0">
+                  <p className="truncate font-bold">{client.email}</p>
+                  <p className="mt-1 text-xs text-[#777067]">{client.payments} payment{client.payments === 1 ? "" : "s"} · last paid {formatDate(client.lastPaidAt)}</p>
+                </div>
+                <div className="text-left sm:text-right">
+                  <p className="text-2xl font-semibold tracking-[-0.04em]">{money(client.totalPaid)}</p>
+                  <StatusPill tone="green">{client.status.toUpperCase()}</StatusPill>
+                </div>
+              </div>
+            )) : <EmptyState title="No paid clients yet" text="Paid clients appear here after Razorpay verification." />}
+          </div>
+        </AdminPanel>
+
+        <AdminPanel title="Revenue snapshot" description="Current month revenue, lifetime payments, and Pro account health.">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="rounded-3xl bg-[#151515] p-5 text-white"><TrendingUp className="h-5 w-5 text-[#f6821f]" /><p className="mt-6 text-xs font-black uppercase tracking-[0.18em] text-white/45">This month</p><b className="mt-2 block text-4xl tracking-[-0.06em]">{money(billing.totals.currentMonthRevenue)}</b></div>
+            <div className="rounded-3xl bg-[#fbfaf8] p-5"><CreditCard className="h-5 w-5 text-[#f6821f]" /><p className="mt-6 text-xs font-black uppercase tracking-[0.18em] text-[#777067]">Lifetime</p><b className="mt-2 block text-4xl tracking-[-0.06em]">{money(billing.totals.totalRevenue)}</b></div>
+            <div className="rounded-3xl bg-[#fbfaf8] p-5"><Activity className="h-5 w-5 text-[#16845f]" /><p className="mt-6 text-xs font-black uppercase tracking-[0.18em] text-[#777067]">Active Pro</p><b className="mt-2 block text-4xl tracking-[-0.06em]">{overview.cards.currentMonthActiveProUsers}</b></div>
+          </div>
+        </AdminPanel>
+      </div>
+
       <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-        <AdminPanel title="Live temp users" description="Anonymous visitors stored in Redis and removed on page leave or TTL expiry.">
+        <AdminPanel title="Live temp users" description="Anonymous visitors stored in Cache Storage and removed on page leave or TTL expiry.">
           <div className="space-y-3">
             {overview.tempUsers.length ? overview.tempUsers.map((tempUser) => (
               <div key={tempUser.id} className="rounded-2xl bg-[#fbfaf8] p-4">
@@ -76,7 +114,7 @@ export default async function AdminDashboardPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Link href="/admin/active-users" className="admin-card rounded-[28px] border border-black/10 bg-white p-5 transition hover:-translate-y-1"><Activity className="h-5 w-5 text-[#f6821f]" /><h3 className="mt-5 text-xl font-semibold">Active user details</h3><p className="mt-2 text-sm text-[#6a645c]">Inspect current user engagement signals.</p></Link>
         <Link href="/admin/payments" className="admin-card rounded-[28px] border border-black/10 bg-white p-5 transition hover:-translate-y-1"><CreditCard className="h-5 w-5 text-[#f6821f]" /><h3 className="mt-5 text-xl font-semibold">Payment history</h3><p className="mt-2 text-sm text-[#6a645c]">Review Pro plan activation events.</p></Link>
-        <Link href="/admin/server" className="admin-card rounded-[28px] border border-black/10 bg-white p-5 transition hover:-translate-y-1"><Server className="h-5 w-5 text-[#f6821f]" /><h3 className="mt-5 text-xl font-semibold">Server health</h3><p className="mt-2 text-sm text-[#6a645c]">Check Mongo, Redis, memory, and runtime.</p></Link>
+        <Link href="/admin/server" className="admin-card rounded-[28px] border border-black/10 bg-white p-5 transition hover:-translate-y-1"><Server className="h-5 w-5 text-[#f6821f]" /><h3 className="mt-5 text-xl font-semibold">Server health</h3><p className="mt-2 text-sm text-[#6a645c]">Check Data Collection, Cache Storage, memory, and runtime.</p></Link>
       </div>
     </div>
   );

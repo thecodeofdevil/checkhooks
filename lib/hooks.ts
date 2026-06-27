@@ -45,7 +45,7 @@ export async function listUserHooks(ownerEmail: string) {
 
 export async function upsertUserHook(ownerEmail: string, plan: UserPlan, hook: Omit<StoredHook, "ownerEmail" | "createdAt" | "updatedAt">) {
   const collection = await getHooksCollection();
-  if (!collection) throw new Error("MongoDB is required to save hooks.");
+  if (!collection) throw new Error("Data Collection is required to save hooks.");
 
   const now = new Date();
   const count = await collection.countDocuments({ ownerEmail });

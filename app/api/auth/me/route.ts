@@ -3,12 +3,18 @@ import { NextResponse } from "next/server";
 import { getCurrentSession, PRO_PRICE_USD, setSessionCookie } from "../../../../lib/auth";
 import { findUserByEmail } from "../../../../lib/users";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function GET() {
   const session = await getCurrentSession();
   let user = session;
 
   if (session) {
-    const storedUser = await findUserByEmail(session.email);
+    const storedUser = await findUserByEmail(session.email).catch((error) => {
+      console.error("Unable to refresh session user from Data Collection", error);
+      return null;
+    });
     if (storedUser) {
       user = {
         email: storedUser.email,

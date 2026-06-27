@@ -1,16 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { ArrowRight, Check, CreditCard, Gauge, Rocket, ShieldCheck, Sparkles, Webhook, X } from "lucide-react";
+import { ArrowRight, Check, Gauge, Rocket, ShieldCheck, Sparkles, Webhook, X } from "lucide-react";
 
 import { SiteFooter, SiteHeader } from "@/components/site-chrome";
 
 const proFeatures = [
   "1,000,000 accepted requests per receiver",
   "1,200 requests per minute",
-  "MongoDB account activity trail",
-  "Redis-backed account receiver counters",
+  "Data Collection activity trail",
+  "Cache Storage-backed receiver counters",
   "Realtime socket-powered inspector",
   "Higher-volume integration testing",
 ];
@@ -20,7 +19,7 @@ const comparisonRows = [
   { feature: "Rate limit", free: "120 / minute", pro: "1,200 / minute" },
   { feature: "Realtime inspector", free: true, pro: true },
   { feature: "Temporary receiver stats", free: true, pro: true },
-  { feature: "MongoDB activity log", free: false, pro: true },
+  { feature: "Data Collection activity log", free: false, pro: true },
   { feature: "Account-linked receivers", free: false, pro: true },
   { feature: "Best fit", free: "Local testing", pro: "Growing integrations" },
 ];
@@ -33,24 +32,6 @@ function Included({ value }: { value: string | boolean }) {
 }
 
 export default function PlanPage() {
-  const [message, setMessage] = useState("Login first, then activate Pro for $5/month.");
-  const [loading, setLoading] = useState(false);
-
-  const subscribe = async () => {
-    setLoading(true);
-    setMessage("Activating Pro...");
-    try {
-      const response = await fetch("/api/billing/plan", { method: "POST" });
-      const data = await response.json();
-      if (!response.ok) throw new Error(String(data.error ?? "Plan update failed"));
-      setMessage(String(data.message ?? "Pro plan enabled."));
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Plan update failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <main className="theme-page min-h-screen bg-[#f7f5f2] text-[#191714]">
       <SiteHeader />
@@ -102,18 +83,18 @@ export default function PlanPage() {
                     <div key={feature} className="flex gap-3 rounded-xl border border-white/10 bg-white/[0.055] p-3 text-sm leading-6 text-white/86"><Check className="mt-0.5 h-4 w-4 shrink-0 text-[#73e2b5]" /> {feature}</div>
                   ))}
                 </div>
-                <button type="button" onClick={subscribe} disabled={loading} className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#f6821f] px-5 py-3 font-bold text-white transition hover:bg-[#db6512] disabled:opacity-60">
-                  <CreditCard className="h-4 w-4" /> {loading ? "Activating" : "Activate Pro"} <ArrowRight className="h-4 w-4" />
-                </button>
-                <p className="mt-4 text-center text-sm text-white/58">{message}</p>
+                <Link href="/signup" className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#f6821f] px-5 py-3 font-bold text-white transition hover:bg-[#db6512]">
+                  Sign up to activate Pro <ArrowRight className="h-4 w-4" />
+                </Link>
+                <p className="mt-4 text-center text-sm text-white/58">Create an account first, then complete payment from your Subscription page.</p>
               </div>
             </article>
           </div>
 
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl border border-black/10 bg-white/75 p-5 backdrop-blur"><Gauge className="h-5 w-5 text-[#c4510a]" /><h3 className="mt-4 font-semibold">Fast counters</h3><p className="mt-2 text-sm leading-6 text-[#6a645c]">Redis tracks quota and minute windows without slowing inspection.</p></div>
+            <div className="rounded-2xl border border-black/10 bg-white/75 p-5 backdrop-blur"><Gauge className="h-5 w-5 text-[#c4510a]" /><h3 className="mt-4 font-semibold">Fast counters</h3><p className="mt-2 text-sm leading-6 text-[#6a645c]">Cache Storage tracks quota and minute windows without slowing inspection.</p></div>
             <div className="rounded-2xl border border-black/10 bg-white/75 p-5 backdrop-blur"><Webhook className="h-5 w-5 text-[#c4510a]" /><h3 className="mt-4 font-semibold">Live stream</h3><p className="mt-2 text-sm leading-6 text-[#6a645c]">Socket-powered receiver events appear in the inspector instantly.</p></div>
-            <div className="rounded-2xl border border-black/10 bg-white/75 p-5 backdrop-blur"><ShieldCheck className="h-5 w-5 text-[#c4510a]" /><h3 className="mt-4 font-semibold">Activity trail</h3><p className="mt-2 text-sm leading-6 text-[#6a645c]">Logged-in activity is written to MongoDB for account history.</p></div>
+            <div className="rounded-2xl border border-black/10 bg-white/75 p-5 backdrop-blur"><ShieldCheck className="h-5 w-5 text-[#c4510a]" /><h3 className="mt-4 font-semibold">Activity trail</h3><p className="mt-2 text-sm leading-6 text-[#6a645c]">Logged-in activity is saved to Data Collection for account history.</p></div>
           </div>
         </div>
       </section>

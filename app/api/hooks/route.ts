@@ -96,6 +96,10 @@ export async function POST(request: Request) {
   }
 
   try {
+    if (session.plan !== "pro" && (Boolean(payload.workflowEnabled) || Boolean(payload.dataCenterEnabled))) {
+      return NextResponse.json({ error: "Workflow and Data Center are available on Pro." }, { status: 403 });
+    }
+
     const workflowEnabled = Boolean(payload.workflowEnabled) && session.plan === "pro";
     const dataCenterEnabled = Boolean(payload.dataCenterEnabled) && session.plan === "pro";
     const hook = await upsertUserHook(session.email, session.plan, {

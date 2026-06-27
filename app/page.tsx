@@ -261,37 +261,80 @@ export default async function LandingPage() {
     <main className="theme-page overflow-hidden bg-[#f7f5f2] text-[#151515]">
       <SiteHeader showSignup isLoggedIn={Boolean(session)} />
 
-      <section className="relative px-5 pb-20 pt-16 sm:px-8 sm:pt-24 lg:pb-28 lg:pt-28">
-        <div className="landing-grid absolute inset-0 opacity-55" />
-        <div className="absolute left-[-100px] top-16 h-72 w-72 rounded-full bg-[#ffbd8c]/35 blur-[90px]" />
-        <div className="relative mx-auto max-w-[1240px] text-center">
-          <div className="landing-hero-badge mb-7 inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/70 px-3.5 py-2 text-xs font-bold text-[#4d4943] shadow-sm">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#f6821f] text-white"><Sparkles className="h-3 w-3" /></span>
-            No signup. No setup. Just send.
+      <section className="landing-hero-human landing-flow-hero relative px-5 pb-20 pt-14 sm:px-8 sm:pt-20 lg:pb-24 lg:pt-20">
+        <div className="landing-hero-wash" aria-hidden="true" />
+        <div className="relative mx-auto max-w-[1240px]">
+          <div className="landing-flow-copy mx-auto max-w-4xl text-center">
+            <div className="landing-hero-badge mb-7 inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/75 px-3.5 py-2 text-xs font-bold text-[#4d4943] shadow-sm">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#f6821f] text-white"><Sparkles className="h-3 w-3" /></span>
+              No signup. No setup. Just send.
+            </div>
+            <h1 className="mx-auto max-w-4xl text-[44px] font-semibold leading-[0.96] tracking-[-0.07em] sm:text-[68px] lg:text-[82px]">
+              <span className="block">Catch checkhooks with</span>
+              <span className="landing-marker relative inline-block text-[#e45f0a]">zero guesswork</span>
+            </h1>
+            <p className="mx-auto mt-6 max-w-2xl text-base leading-7 text-[#625d55] sm:text-lg">
+              Send requests, receive live events, and inspect every header, body, query, IP, response, and retry from one polished testing workspace.
+            </p>
+            <div className="landing-hero-actions mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+              <Link href="/app" className="group inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#171717] px-6 py-3.5 text-sm font-bold text-white shadow-[0_12px_26px_rgba(25,23,20,0.16)] transition-all hover:-translate-y-0.5 hover:bg-[#f6821f] sm:w-auto">
+                Test a checkhook free <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+              <a href="#product" className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-black/15 bg-white/70 px-6 py-3.5 text-sm font-bold transition-colors hover:bg-white sm:w-auto">
+                See how it works <ChevronRight className="h-4 w-4" />
+              </a>
+              <Link href="/plan" className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#f6821f]/30 bg-[#fff4eb]/80 px-6 py-3.5 text-sm font-bold text-[#b84b08] transition-colors hover:bg-[#ffe6d3] sm:w-auto">
+                Plans <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+            <div className="mx-auto mt-7 grid max-w-2xl gap-3 text-sm text-[#5f594f] sm:grid-cols-3">
+              <span className="landing-proof"><Check className="h-3.5 w-3.5 text-[#16845f]" /> Free to use</span>
+              <span className="landing-proof"><Check className="h-3.5 w-3.5 text-[#16845f]" /> No credit card</span>
+              <span className="landing-proof"><Check className="h-3.5 w-3.5 text-[#16845f]" /> Temporary by default</span>
+            </div>
           </div>
-          <h1 className="mx-auto max-w-[1000px] text-[48px] font-semibold leading-[0.98] tracking-[-0.065em] sm:text-[70px] lg:text-[92px]">
-            Checkhooks, without the <span className="relative whitespace-nowrap text-[#e45f0a]">guesswork.<svg className="absolute -bottom-3 left-0 w-full" viewBox="0 0 400 12" fill="none" aria-hidden="true"><path d="M3 8C105 1.5 283 1 397 7" stroke="currentColor" strokeWidth="4" strokeLinecap="round" /></svg></span>
-          </h1>
-          <p className="mx-auto mt-8 max-w-2xl text-lg leading-8 text-[#625d55] sm:text-xl">
-            Send, receive, and inspect checkhooks from one temporary workspace built for fast integration testing.
-          </p>
-          <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href="/app" className="group inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#f6821f] px-6 py-3.5 text-sm font-bold text-white shadow-[0_8px_24px_rgba(246,130,31,0.28)] transition-all hover:-translate-y-0.5 hover:bg-[#db6512] sm:w-auto">
-              Test a checkhook free <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </Link>
-            <a href="#product" className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-black/15 bg-white/60 px-6 py-3.5 text-sm font-bold transition-colors hover:bg-white sm:w-auto">
-              See how it works <ChevronRight className="h-4 w-4" />
-            </a>
-            <Link href="/plan" className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#f6821f]/40 bg-[#fff4eb] px-6 py-3.5 text-sm font-bold text-[#b84b08] transition-colors hover:bg-[#ffe6d3] sm:w-auto">
-              Compare plans <ChevronRight className="h-4 w-4" />
-            </Link>
+
+          <div className="landing-flow-stage" aria-label="Checkhooks live request preview">
+              <div className="landing-flow-ribbon landing-flow-ribbon-one" aria-hidden="true" />
+              <div className="landing-flow-ribbon landing-flow-ribbon-two" aria-hidden="true" />
+              <div className="landing-note landing-note-one">
+                <span>receiver</span>
+                <b>/api/receive/temp-9821</b>
+                <small>listening now</small>
+              </div>
+              <div className="landing-note landing-note-two">
+                <span>last event</span>
+                <b>POST · 200 OK</b>
+                <small>184ms response</small>
+              </div>
+              <div className="landing-terminal-card">
+                <div className="landing-terminal-top">
+                  <div className="flex gap-1.5"><span /><span /><span /></div>
+                  <small>checkhook run</small>
+                </div>
+                <div className="landing-terminal-body">
+                  <p><span>POST</span> /api/receive/temp-9821</p>
+                  <pre>{`{
+  "event": "order.completed",
+  "order_id": "ord_9821",
+                  "received": true
+}`}</pre>
+                </div>
+              </div>
+              <div className="landing-inspector-card">
+                <div><Radio className="h-4 w-4 text-[#16845f]" /><span>Live inspector</span></div>
+                <p>Headers, body, query, IP, and response in one place.</p>
+              </div>
+            </div>
+
+          <div className="landing-trust-strip">
+            <p>Trusted by teams testing fast-moving integrations</p>
+            <div>
+              {["WebhookOps", "ApiNest", "Flowbit", "Payloadly", "Hookbase"].map((name) => (
+                <span key={name}><CheckhookMark className="h-5 w-5" /> {name}</span>
+              ))}
+            </div>
           </div>
-          <div className="mt-7 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs font-medium text-[#746e65]">
-            <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#16845f]" /> Free to use</span>
-            <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#16845f]" /> No credit card</span>
-            <span className="flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-[#16845f]" /> No saved receiver data</span>
-          </div>
-          <ProductPreview />
         </div>
       </section>
 

@@ -4,6 +4,9 @@ import { logUserActivity } from "../../../../lib/activity-log";
 import { normalizeEmail, PRO_PRICE_USD, setSessionCookie } from "../../../../lib/auth";
 import { createUser, validatePassword } from "../../../../lib/users";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function POST(request: Request) {
   let payload: { email?: string; password?: string } = {};
 

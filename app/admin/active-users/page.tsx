@@ -17,7 +17,7 @@ export default async function AdminActiveUsersPage() {
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-3">
         <MetricCard label="Active users" value={activeUsers.length} detail="Logged in during the last 7 days." tone="green" />
-        <MetricCard label="Temp users" value={overview.cards.tempUsers} detail="Anonymous Redis presence right now." tone="blue" />
+        <MetricCard label="Temp users" value={overview.cards.tempUsers} detail="Anonymous Cache Storage presence right now." tone="blue" />
         <MetricCard label="Receiver events" value={overview.cards.receiverEvents} detail="Total receiver activity records." tone="orange" />
       </div>
 

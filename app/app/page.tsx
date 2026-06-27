@@ -46,13 +46,14 @@ type IncomingEvent = {
 };
 type UserSession = { email: string; firstName?: string; lastName?: string; plan: "free" | "pro"; planPrice: number };
 type ReceiverUsage = {
+  receiverId?: string;
   plan: "free" | "pro";
   totalAccepted: number;
   totalLimit: number;
   remaining: number;
   rateLimitPerMinute: number;
 };
-type ClientPage = "dashboard" | "hooks" | "workflow" | "dataCenter" | "sender" | "history" | "settings";
+type ClientPage = "dashboard" | "hooks" | "workflow" | "dataCenter" | "sender" | "history" | "subscription" | "settings";
 type WorkflowNodeType = "response" | "transform" | "condition" | "forward";
 type WorkflowNode = {
   id: string;
@@ -121,6 +122,51 @@ type HookHistoryEntry = {
   success: boolean;
   createdAt: string;
 };
+type PaymentTransaction = {
+  id: string;
+  provider: string;
+  orderId: string;
+  paymentId: string;
+  amount: number;
+  currency: string;
+  status: string;
+  method: string;
+  invoiceId: string;
+  invoiceUrl: string;
+  createdAt: string;
+};
+type RazorpayResponse = {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+};
+type RazorpayFailure = {
+  error?: {
+    description?: string;
+    reason?: string;
+  };
+};
+type RazorpayOptions = {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  order_id: string;
+  prefill?: { email?: string };
+  theme?: { color?: string };
+  handler: (response: RazorpayResponse) => void;
+  modal?: { ondismiss?: () => void };
+};
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: RazorpayOptions) => {
+      open: () => void;
+      on: (event: "payment.failed", callback: (response: RazorpayFailure) => void) => void;
+    };
+  }
+}
 
 const CLIENT_SESSION_KEY = "checkhooksClientSession";
 const TEMP_USER_ID_KEY = "checkhooksTempUserId";
@@ -128,6 +174,7 @@ const CURRENT_RECEIVER_ID_KEY = "checkhooksCurrentReceiverId";
 const SAVED_HOOKS_KEY = "checkhooksClientSavedHooks";
 const HOOK_HISTORY_KEY = "checkhooksClientHookHistory";
 const MAX_FREE_SAVED_HOOKS = 2;
+const HISTORY_PAGE_SIZE = 8;
 
 function formatBody(value: string) {
   try {
@@ -162,6 +209,35 @@ function getReceiverIdFromUrl(url: string) {
 
 function getEventKey(event: IncomingEvent) {
   return `${event.receiverId ?? "receiver"}-${event.id}`;
+}
+
+function formatPaymentAmount(amount: number, currency: string) {
+  const divisor = currency.toUpperCase() === "JPY" ? 1 : 100;
+  return new Intl.NumberFormat("en", {
+    style: "currency",
+    currency: currency || "USD",
+    minimumFractionDigits: divisor === 1 ? 0 : 2,
+  }).format(amount / divisor);
+}
+
+function loadRazorpayScript() {
+  return new Promise<boolean>((resolve) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+    const existingScript = document.querySelector<HTMLScriptElement>('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve(true), { once: true });
+      existingScript.addEventListener("error", () => resolve(false), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
 }
 
 export default function AppPage() {
@@ -223,6 +299,13 @@ export default function AppPage() {
   const [historyHookFilter, setHistoryHookFilter] = useState("all");
   const [historyDateFilter, setHistoryDateFilter] = useState("");
   const [hookInspectorEvents, setHookInspectorEvents] = useState<Array<IncomingEvent & { hookId: string; hookName: string; hookUrl: string }>>([]);
+  const [hookUsages, setHookUsages] = useState<Record<string, ReceiverUsage>>({});
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [historyVisibleCount, setHistoryVisibleCount] = useState(HISTORY_PAGE_SIZE);
+  const [historyReloadKey, setHistoryReloadKey] = useState(0);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentTransaction[]>([]);
+  const [billingMessage, setBillingMessage] = useState("Subscription billing is ready.");
+  const [billingLoading, setBillingLoading] = useState(false);
   const activeSavedHook = savedHooks.find((hook) => hook.id === activeHookId) ?? null;
   const selectedWorkflowNode = workflowNodes.find((node) => node.id === selectedWorkflowNodeId) ?? null;
   const receiverUrl = receiverId && origin ? `${origin}/api/receive/${receiverId}` : "";
@@ -239,6 +322,11 @@ export default function AppPage() {
   const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
   const recentHistory = history.filter((entry) => Date.parse(entry.createdAt) >= sevenDaysAgo);
   const recentReceiverEvents = hookInspectorEvents.filter((entry) => Date.parse(entry.when) >= sevenDaysAgo);
+  const hookUsageList = Object.values(hookUsages);
+  const aggregateAcceptedCount = hookUsageList.reduce((total, item) => total + Number(item.totalAccepted ?? 0), 0);
+  const accountQuotaLimit = user?.plan === "pro" ? 1000000 : user ? 50000 : 10000;
+  const aggregateRateLimit = user?.plan === "pro" ? 1200 : user ? 120 : 60;
+  const dashboardAcceptedCount = Math.max(aggregateAcceptedCount, recentReceiverEvents.length, Number(quota?.totalAccepted ?? 0));
   const requestTrend = Array.from({ length: 7 }, (_, index) => {
     const date = new Date();
     date.setDate(date.getDate() - (6 - index));
@@ -246,7 +334,7 @@ export default function AppPage() {
     const sentCount = recentHistory.filter((entry) => entry.createdAt.slice(0, 10) === key).length;
     const receivedCount = recentReceiverEvents.filter((entry) => entry.when.slice(0, 10) === key).length;
     const isToday = key === new Date().toISOString().slice(0, 10);
-    const acceptedFallback = isToday ? Number(quota?.totalAccepted ?? 0) : 0;
+    const acceptedFallback = isToday ? dashboardAcceptedCount : 0;
     return {
       label: date.toLocaleDateString("en", { weekday: "short" }),
       date: date.toLocaleDateString("en", { month: "short", day: "numeric" }),
@@ -262,13 +350,17 @@ export default function AppPage() {
     })
     .join(" ");
   const lineChartFillPoints = `10,88 ${lineChartPoints} 90,88`;
-  const quotaLimit = quota?.totalLimit ?? (user?.plan === "pro" ? 1000000 : 50000);
-  const quotaUsed = Math.min(quota?.totalAccepted ?? 0, quotaLimit);
-  const quotaRemaining = Math.max(quota?.remaining ?? quotaLimit - quotaUsed, 0);
+  const quotaLimit = user ? accountQuotaLimit : (quota?.totalLimit ?? 10000);
+  const quotaUsed = Math.min(user ? dashboardAcceptedCount : (quota?.totalAccepted ?? 0), quotaLimit);
+  const quotaRemaining = Math.max(quotaLimit - quotaUsed, 0);
   const acceptedRequestCount = Math.max(recentReceiverEvents.length, quotaUsed);
   const quotaUsedPercent = quotaLimit ? Math.round((quotaUsed / quotaLimit) * 100) : 0;
   const quotaRemainingPercent = Math.max(0, 100 - quotaUsedPercent);
-  const mostActiveHooks = [...savedHooks].sort((left, right) => right.sentCount - left.sentCount).slice(0, 3);
+  const eventCountByHook = recentReceiverEvents.reduce<Record<string, number>>((counts, event) => {
+    counts[event.hookId] = (counts[event.hookId] ?? 0) + 1;
+    return counts;
+  }, {});
+  const mostActiveHooks = [...savedHooks].sort((left, right) => (eventCountByHook[right.id] ?? right.sentCount) - (eventCountByHook[left.id] ?? left.sentCount)).slice(0, 3);
   const recentSavedHooks = [...savedHooks].sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt)).slice(0, 3);
   const isProUser = user?.plan === "pro";
   const canSaveMoreHooks = Boolean(editingHookId) || isProUser || savedHooks.length < MAX_FREE_SAVED_HOOKS;
@@ -283,6 +375,7 @@ export default function AppPage() {
     const matchesDate = !historyDateFilter || event.when.slice(0, 10) === historyDateFilter;
     return matchesHook && matchesDate;
   });
+  const visibleHookInspectorEvents = filteredHookInspectorEvents.slice(0, historyVisibleCount);
   const pageTitle = {
     dashboard: "Dashboard",
     hooks: "Hooks",
@@ -290,6 +383,7 @@ export default function AppPage() {
     dataCenter: "Data Center",
     sender: "Sender",
     history: "History",
+    subscription: "Subscription",
     settings: "Settings",
   }[activePage];
   const pageDescription = {
@@ -299,6 +393,7 @@ export default function AppPage() {
     dataCenter: "Capture selected hook fields into searchable Pro data tables.",
     sender: "Send test requests from your logged-in workspace.",
     history: "Review saved hook receiver records with hook and date filters.",
+    subscription: "Manage Pro activation, payment status, transactions, and invoices.",
     settings: "Manage profile, security, plan, and account actions.",
   }[activePage];
 
@@ -365,46 +460,70 @@ export default function AppPage() {
     };
 
     void loadSavedHooks();
+    void loadPaymentHistory();
   }, [user?.email]);
 
   useEffect(() => {
     const shouldLoadHookEvents = activePage === "history" || activePage === "dashboard";
     if (!user || !shouldLoadHookEvents || savedHooks.length === 0) {
       if (shouldLoadHookEvents && savedHooks.length === 0) setHookInspectorEvents([]);
+      if (shouldLoadHookEvents && savedHooks.length === 0) setHookUsages({});
       return;
     }
 
     let disposed = false;
     const loadHookEvents = async () => {
+      if (activePage === "history") setIsHistoryLoading(true);
       const results = await Promise.all(savedHooks.map(async (hook) => {
         const hookReceiverId = getReceiverIdFromUrl(hook.url);
-        if (!hookReceiverId) return [];
+        if (!hookReceiverId) return { events: [], usage: null as ReceiverUsage | null, hookId: hook.id };
+        let usage: ReceiverUsage | null = null;
+        try {
+          const usageResult = await fetch(`/api/receivers/${hookReceiverId}/usage`, { cache: "no-store" });
+          const usageData = await usageResult.json();
+          if (usageResult.ok && usageData.usage) usage = usageData.usage as ReceiverUsage;
+        } catch {}
         try {
           const result = await fetch(`/api/receive/${hookReceiverId}/events`, { cache: "no-store" });
           const data = await result.json();
-          if (!result.ok || !Array.isArray(data.events)) return [];
-          return (data.events as IncomingEvent[]).map((event) => ({
+          if (!result.ok || !Array.isArray(data.events)) return { events: [], usage, hookId: hook.id };
+          const events = (data.events as IncomingEvent[]).map((event) => ({
             ...event,
             receiverId: event.receiverId ?? hookReceiverId,
             hookId: hook.id,
             hookName: hook.name,
             hookUrl: hook.url,
           }));
+          return { events, usage, hookId: hook.id };
         } catch {
-          return [];
+          return { events: [], usage, hookId: hook.id };
         }
       }));
 
       if (!disposed) {
-        setHookInspectorEvents(results.flat().sort((left, right) => Date.parse(right.when) - Date.parse(left.when)));
+        setHookInspectorEvents(results.flatMap((result) => result.events).sort((left, right) => Date.parse(right.when) - Date.parse(left.when)));
+        setHookUsages(Object.fromEntries(results.filter((result) => result.usage).map((result) => [result.hookId, result.usage as ReceiverUsage])));
+        setIsHistoryLoading(false);
       }
     };
 
     void loadHookEvents();
     return () => {
       disposed = true;
+      setIsHistoryLoading(false);
     };
-  }, [activePage, savedHooks, user?.email]);
+  }, [activePage, savedHooks, user?.email, historyReloadKey]);
+
+  useEffect(() => {
+    setHistoryVisibleCount(HISTORY_PAGE_SIZE);
+    setSelectedHistoryIds([]);
+  }, [historyHookFilter, historyDateFilter]);
+
+  useEffect(() => {
+    if (!isProUser && (activePage === "workflow" || activePage === "dataCenter")) {
+      setActivePage("subscription");
+    }
+  }, [activePage, isProUser]);
 
   useEffect(() => {
     if (!user || user.plan !== "pro" || activePage !== "dataCenter") return;
@@ -589,6 +708,17 @@ export default function AppPage() {
     } catch {}
   };
 
+  const loadPaymentHistory = async () => {
+    try {
+      const result = await fetch("/api/payments", { cache: "no-store" });
+      const data = await result.json();
+      if (!result.ok) throw new Error(String(data.error ?? "Unable to load payments"));
+      setPaymentHistory(Array.isArray(data.payments) ? data.payments : []);
+    } catch (paymentError) {
+      setBillingMessage(paymentError instanceof Error ? paymentError.message : "Unable to load payments");
+    }
+  };
+
   const resetHookForm = () => {
     setEditingHookId(null);
     setActiveHookId(null);
@@ -678,6 +808,8 @@ export default function AppPage() {
     }
 
     const now = new Date().toISOString();
+    const proWorkflowEnabled = isProUser && workflowEnabled;
+    const proDataCenterEnabled = isProUser && dataCenterEnabled;
     const nextHook: SavedHook = {
       id: editingHookId ?? `${Date.now()}-${Math.round(Math.random() * 10000)}`,
       name: hookName.trim() || "Receiver hook",
@@ -690,10 +822,10 @@ export default function AppPage() {
       rateLimitPerMinute: hookRateLimit,
       authEnabled: hookAuthEnabled,
       authToken: hookAuthToken,
-      workflowEnabled,
-      workflowNodes,
-      dataCenterEnabled,
-      dataCenterFields,
+      workflowEnabled: proWorkflowEnabled,
+      workflowNodes: proWorkflowEnabled ? workflowNodes : [],
+      dataCenterEnabled: proDataCenterEnabled,
+      dataCenterFields: proDataCenterEnabled ? dataCenterFields : [],
       status: hookStatus,
       createdAt: savedHooks.find((hook) => hook.id === editingHookId)?.createdAt ?? now,
       updatedAt: now,
@@ -890,17 +1022,76 @@ export default function AppPage() {
   };
 
   const subscribe = async () => {
-    setAuthMessage("Activating Pro...");
+    if (user?.plan === "pro") {
+      setBillingMessage("Pro is already active for this account.");
+      return;
+    }
+    setBillingLoading(true);
+    setBillingMessage("Preparing secure Razorpay checkout...");
     try {
-      const result = await fetch("/api/billing/plan", { method: "POST" });
-      const data = await result.json();
-      if (!result.ok) throw new Error(String(data.error ?? "Plan update failed"));
-      setUser(data.user);
-      window.localStorage.setItem(CLIENT_SESSION_KEY, JSON.stringify(data.user));
-      setAuthMessage(String(data.message ?? "Pro plan enabled."));
-      if (receiverId) await registerReceiver(receiverId);
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded || !window.Razorpay) throw new Error("Unable to load Razorpay checkout. Please try again.");
+
+      const orderResponse = await fetch("/api/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: Number(process.env.NEXT_PUBLIC_RAZORPAY_PRO_AMOUNT_SUBUNITS ?? 500),
+          currency: "USD",
+          receipt: `pro_${Date.now()}`,
+        }),
+      });
+      const order = await orderResponse.json();
+      if (!orderResponse.ok) throw new Error(String(order.error ?? "Unable to create payment order."));
+
+      const key = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+      if (!key) throw new Error("Razorpay key is not configured.");
+
+      const checkout = new window.Razorpay({
+        key,
+        amount: order.amount,
+        currency: order.currency,
+        name: "Checkhooks",
+        description: "Checkhooks Pro plan",
+        order_id: order.order_id,
+        prefill: { email: user?.email },
+        theme: { color: "#f6821f" },
+        handler: async (payment) => {
+          setBillingMessage("Verifying payment...");
+          const verifyResponse = await fetch("/api/verify-payment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payment),
+          });
+          const verifyData = await verifyResponse.json();
+          if (!verifyResponse.ok) {
+            setBillingMessage(String(verifyData.error ?? "Payment verification failed."));
+            setBillingLoading(false);
+            return;
+          }
+          setUser(verifyData.user);
+          window.localStorage.setItem(CLIENT_SESSION_KEY, JSON.stringify(verifyData.user));
+          setAuthMessage("Pro plan is active.");
+          setBillingMessage(String(verifyData.message ?? "Payment verified. Pro plan is active."));
+          await loadPaymentHistory();
+          if (receiverId) await registerReceiver(receiverId);
+          setBillingLoading(false);
+        },
+        modal: {
+          ondismiss: () => {
+            setBillingMessage("Payment cancelled. You can try again anytime.");
+            setBillingLoading(false);
+          },
+        },
+      });
+      checkout.on("payment.failed", (response) => {
+        setBillingMessage(response.error?.description ?? response.error?.reason ?? "Payment failed. Please try again.");
+        setBillingLoading(false);
+      });
+      checkout.open();
     } catch (subscribeError) {
-      setAuthMessage(subscribeError instanceof Error ? subscribeError.message : "Plan update failed");
+      setBillingMessage(subscribeError instanceof Error ? subscribeError.message : "Plan update failed");
+      setBillingLoading(false);
     }
   };
 
@@ -1175,7 +1366,7 @@ export default function AppPage() {
   return (
     <main className="quick-app min-h-screen transition-colors">
       <nav className="quick-nav">
-        <div className="mx-auto flex h-[72px] max-w-[1240px] items-center justify-between px-5 sm:px-8">
+        <div className="flex h-[72px] w-full items-center justify-between px-4 sm:px-6 lg:px-8">
           <a href="/" className="inline-flex items-center gap-2.5" aria-label="Checkhooks home">
             <CheckhooksLogo />
           </a>
@@ -1187,14 +1378,14 @@ export default function AppPage() {
         </div>
       </nav>
 
-      <div className="mx-auto max-w-[1240px] px-5 py-8 sm:px-8 sm:py-12">
+      <div className="w-full px-0 py-5 sm:px-4 sm:py-8 lg:px-6 xl:px-8">
         {!user ? (
-          <div className="space-y-6">
-            <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="quick-temp-workspace space-y-6">
+            <header className="quick-temp-hero flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <div className="quick-eyebrow"><span className="h-2 w-2 rounded-full bg-[#18a36f]" /> Temporary workspace</div>
-                <h1 className="mt-4 text-4xl font-semibold leading-tight sm:text-5xl">Test a checkhook. Get your answer.</h1>
-                <p className="quick-muted mt-4 max-w-2xl leading-7">Use the receiver to catch real checkhook calls, inspect requests, customize the response, or send a test request.</p>
+                <h1 className="mt-4 text-4xl font-semibold leading-tight tracking-[-0.055em] sm:text-6xl">Test a checkhook. Get your answer.</h1>
+                <p className="quick-muted mt-4 max-w-2xl leading-7">Catch live requests, inspect every detail, customize the response, or send a test request from one temporary workspace.</p>
               </div>
               <div className="quick-tabs">
                 <button type="button" onClick={() => setActiveTempView("receive")} className={activeTempView === "receive" ? "active" : ""}><Radio className="h-4 w-4" /> Receiver</button>
@@ -1202,21 +1393,22 @@ export default function AppPage() {
               </div>
             </header>
 
-            <section className="quick-shell grid gap-4 p-5 sm:p-6 lg:grid-cols-[1fr_1.15fr]">
+            <section className="quick-shell quick-temp-overview grid gap-4 p-5 sm:p-6 lg:grid-cols-[1fr_1.05fr]">
               <div>
                 <p className="quick-section-label">Plan and quota</p>
                 <h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em]">Free temporary workspace</h2>
                 <p className="quick-muted mt-3 text-sm leading-6">Temporary receivers accept 10,000 requests per day with a 60/min rate limit. Login to save receiver hooks, history, and account settings.</p>
                 {quota ? (
-                  <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                  <div className="quick-temp-metrics mt-5 grid gap-3 sm:grid-cols-3">
                     <div className="quick-metric"><span>Accepted</span><b>{quota.totalAccepted.toLocaleString()}</b></div>
                     <div className="quick-metric"><span>Remaining</span><b>{quota.remaining.toLocaleString()}</b></div>
                     <div className="quick-metric"><span>Rate/min</span><b>{quota.rateLimitPerMinute.toLocaleString()}</b></div>
                   </div>
                 ) : null}
               </div>
-              <div className="rounded-xl border border-inherit bg-white/50 p-4 dark:bg-white/5">
-                <p className="quick-section-label">Login for CRM</p>
+              <div className="quick-temp-login rounded-xl border border-inherit bg-white/50 p-4 dark:bg-white/5">
+                <p className="quick-section-label">Save your work</p>
+                <h3 className="mt-2 text-xl font-semibold tracking-[-0.035em]">Login to keep hooks and history.</h3>
                 <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
                   <input type="email" value={loginEmail} onChange={(event) => setLoginEmail(event.target.value)} placeholder="you@example.com" autoComplete="email" className="quick-form-control" />
                   <input type="password" value={loginPassword} onChange={(event) => setLoginPassword(event.target.value)} placeholder="Password" autoComplete="current-password" className="quick-form-control" />
@@ -1253,9 +1445,9 @@ export default function AppPage() {
                 </aside>
               </div>
             ) : (
-              <div className="quick-shell overflow-hidden">
-                <div className="grid lg:grid-cols-[390px_1fr]">
-                  <section className="border-b border-inherit p-5 sm:p-8 lg:min-h-[560px] lg:border-b-0 lg:border-r">
+              <div className="quick-shell quick-temp-receiver overflow-hidden">
+                <div className="grid lg:grid-cols-[420px_1fr]">
+                  <section className="quick-temp-receiver-side border-b border-inherit p-5 sm:p-8 lg:min-h-[560px] lg:border-b-0 lg:border-r">
                     <p className="quick-section-label">Receiver hook</p>
                     <h2 className="mt-3 text-3xl font-semibold tracking-[-0.045em]">Catch the next event.</h2>
                     <p className="quick-muted mt-4 leading-7">This receiver is the hook. Point an external service to this URL and inspect what arrives.</p>
@@ -1268,7 +1460,7 @@ export default function AppPage() {
                       <div className="mt-8 border-t border-inherit pt-6"><p className="quick-section-label">Incoming</p><p className="mt-2 text-4xl font-semibold tracking-[-0.04em]">{incoming.length}</p><p className="quick-muted mt-1 text-sm">events this session</p></div>
                     </div>
                   </section>
-                  <section className="p-5 sm:p-8">
+                  <section className="quick-temp-inspector p-5 sm:p-8">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div><p className="quick-section-label">Live events</p><h3 className="mt-2 text-xl font-semibold">Request inspector</h3></div>
                       <button type="button" onClick={clearIncomingHistory} disabled={incoming.length === 0} className="quick-danger-button"><Trash2 className="h-3.5 w-3.5" /> Clear</button>
@@ -1325,14 +1517,20 @@ export default function AppPage() {
             <nav>
               <button type="button" onClick={() => setActivePage("dashboard")} className={activePage === "dashboard" ? "active" : ""}><Home className="h-4 w-4" /> Dashboard</button>
               <button type="button" onClick={() => setActivePage("hooks")} className={activePage === "hooks" ? "active" : ""}><Inbox className="h-4 w-4" /> Hooks</button>
-              <button type="button" onClick={() => setActivePage("workflow")} className={activePage === "workflow" ? "active" : ""}><Workflow className="h-4 w-4" /> Workflow</button>
-              <button type="button" onClick={() => setActivePage("dataCenter")} className={activePage === "dataCenter" ? "active" : ""}><Database className="h-4 w-4" /> Data Center</button>
+              {isProUser ? (
+                <>
+                  <button type="button" onClick={() => setActivePage("workflow")} className={activePage === "workflow" ? "active" : ""}><Workflow className="h-4 w-4" /> Workflow</button>
+                  <button type="button" onClick={() => setActivePage("dataCenter")} className={activePage === "dataCenter" ? "active" : ""}><Database className="h-4 w-4" /> Data Center</button>
+                </>
+              ) : null}
               <button type="button" onClick={() => setActivePage("history")} className={activePage === "history" ? "active" : ""}><HistoryIcon className="h-4 w-4" /> History</button>
+              <button type="button" onClick={() => setActivePage("subscription")} className={activePage === "subscription" ? "active" : ""}><CreditCard className="h-4 w-4" /> Subscription</button>
               <button type="button" onClick={() => setActivePage("settings")} className={activePage === "settings" ? "active" : ""}><Settings2 className="h-4 w-4" /> Settings</button>
             </nav>
+            <button type="button" onClick={logout} className="quick-crm-sidebar-logout"><LogOut className="h-4 w-4" /> Logout</button>
             <div className="quick-crm-sidebar-note">
-              <span>{savedHooks.length}</span>
-              <p>{isProUser ? "Pro hooks saved" : `${MAX_FREE_SAVED_HOOKS} hook limit`}</p>
+              <span>{isProUser ? savedHooks.length : `${savedHooks.length}/${MAX_FREE_SAVED_HOOKS}`}</span>
+              <p>{isProUser ? "Unlimited Pro hooks" : "Free hook limit"}</p>
             </div>
           </aside>
 
@@ -1354,7 +1552,7 @@ export default function AppPage() {
               <div className="quick-crm-stat"><span>Accepted requests</span><b>{acceptedRequestCount.toLocaleString()}</b><small>Current daily quota window</small></div>
               <div className="quick-crm-stat"><span>Saved hooks</span><b>{savedHooks.length}</b><small>{isProUser ? "Workflow-ready Pro hooks" : `${Math.max(MAX_FREE_SAVED_HOOKS - savedHooks.length, 0)} hook slots available`}</small></div>
               <div className="quick-crm-stat"><span>Received events</span><b>{recentReceiverEvents.length}</b><small>Saved hook events · 7 days</small></div>
-              <div className="quick-crm-stat"><span>Daily quota</span><b>{quotaRemaining.toLocaleString()}</b><small>{quota?.rateLimitPerMinute ?? 120}/min · {quotaRemainingPercent}% remaining</small></div>
+              <div className="quick-crm-stat"><span>Daily quota</span><b>{quotaRemaining.toLocaleString()}</b><small>{aggregateRateLimit}/min · {quotaRemainingPercent}% remaining</small></div>
             </section>
 
             <div className="quick-dashboard-charts">
@@ -1409,7 +1607,7 @@ export default function AppPage() {
                   {mostActiveHooks.length ? mostActiveHooks.map((hook) => (
                     <button key={hook.id} type="button" onClick={() => loadHook(hook)} className="quick-crm-list-item">
                       <span><b>{hook.name}</b><small>{hook.method} · {hook.url}</small></span>
-                      <strong>{hook.sentCount}</strong>
+                      <strong>{eventCountByHook[hook.id] ?? hook.sentCount}</strong>
                     </button>
                   )) : <p className="quick-muted rounded-xl border border-dashed border-inherit p-5 text-sm">No active hooks yet. Save a receiver hook and retest requests to build activity.</p>}
                 </div>
@@ -1457,8 +1655,12 @@ export default function AppPage() {
                             <div className="quick-hook-menu-popover">
                               <button type="button" onClick={() => { setOpenHookMenuId(null); loadHook(hook); }}><Edit3 className="h-4 w-4" /> Edit</button>
                               <button type="button" onClick={() => { setOpenHookMenuId(null); inspectHook(hook); }}><Radio className="h-4 w-4" /> Inspect</button>
-                              <button type="button" onClick={() => { setOpenHookMenuId(null); loadHookFeatureSettings(hook); setActivePage("workflow"); }}><Workflow className="h-4 w-4" /> Workflow</button>
-                              <button type="button" onClick={() => { setOpenHookMenuId(null); loadHookFeatureSettings(hook); setActivePage("dataCenter"); }}><Database className="h-4 w-4" /> Data Center</button>
+                              {isProUser ? (
+                                <>
+                                  <button type="button" onClick={() => { setOpenHookMenuId(null); loadHookFeatureSettings(hook); setActivePage("workflow"); }}><Workflow className="h-4 w-4" /> Workflow</button>
+                                  <button type="button" onClick={() => { setOpenHookMenuId(null); loadHookFeatureSettings(hook); setActivePage("dataCenter"); }}><Database className="h-4 w-4" /> Data Center</button>
+                                </>
+                              ) : null}
                               <button type="button" onClick={() => { setOpenHookMenuId(null); loadHook(hook); setIsResponseEditorOpen(true); }}><Settings2 className="h-4 w-4" /> Response</button>
                               <button type="button" onClick={() => { setOpenHookMenuId(null); deleteHook(hook.id); }} className="danger"><Trash2 className="h-4 w-4" /> Delete</button>
                             </div>
@@ -1823,7 +2025,8 @@ export default function AppPage() {
             <div className="quick-history-header">
               <div><p className="quick-section-label">History</p><h2 className="mt-2 text-2xl font-semibold">Saved hook request inspector</h2><p className="quick-muted mt-2 text-sm">Live receiver records are stored for 7 days and automatically deleted.</p></div>
               <div className="quick-history-actions">
-                <button type="button" onClick={() => setSelectedHistoryIds(filteredHookInspectorEvents.map(getEventKey))} disabled={filteredHookInspectorEvents.length === 0} className="quick-secondary">Select visible</button>
+                <button type="button" onClick={() => setHistoryReloadKey((key) => key + 1)} disabled={isHistoryLoading} className="quick-secondary"><RotateCcw className={`h-4 w-4 ${isHistoryLoading ? "animate-spin" : ""}`} /> Refresh</button>
+                <button type="button" onClick={() => setSelectedHistoryIds(visibleHookInspectorEvents.map(getEventKey))} disabled={visibleHookInspectorEvents.length === 0} className="quick-secondary">Select visible</button>
                 <button type="button" onClick={deleteSelectedHookInspectorEvents} disabled={selectedHistoryIds.length === 0} className="quick-danger-button"><Trash2 className="h-4 w-4" /> Delete selected</button>
               </div>
             </div>
@@ -1833,15 +2036,21 @@ export default function AppPage() {
               <label className="quick-form-label">Filter by date<input type="date" value={historyDateFilter} onChange={(event) => setHistoryDateFilter(event.target.value)} className="quick-form-control" /></label>
             </div>
 
-            {filteredHookInspectorEvents.length === 0 ? (
+            {isHistoryLoading ? (
+              <div className="quick-history-loader">
+                <Loader2 className="h-6 w-6 animate-spin" />
+                <span>Loading receiver history...</span>
+              </div>
+            ) : filteredHookInspectorEvents.length === 0 ? (
               <div className="quick-hooks-empty">
                 <span className="quick-empty-icon"><Clipboard className="h-6 w-6" /></span>
                 <h3>No request records found</h3>
                 <p className="quick-muted">Try another hook/date filter or send a request to a saved receiver hook.</p>
               </div>
             ) : (
+              <>
               <div className="quick-event-list">
-                {filteredHookInspectorEvents.map((event) => {
+                {visibleHookInspectorEvents.map((event) => {
                   const eventKey = getEventKey(event);
                   const isOpen = selectedEvent ? getEventKey(selectedEvent) === eventKey : false;
                   return (
@@ -1879,8 +2088,92 @@ export default function AppPage() {
                   );
                 })}
               </div>
+              {visibleHookInspectorEvents.length < filteredHookInspectorEvents.length ? (
+                <div className="quick-history-load-more">
+                  <button type="button" onClick={() => setHistoryVisibleCount((count) => count + HISTORY_PAGE_SIZE)} className="quick-secondary">
+                    Load more records
+                    <span>{visibleHookInspectorEvents.length}/{filteredHookInspectorEvents.length}</span>
+                  </button>
+                </div>
+              ) : null}
+              </>
             )}
           </section>
+        ) : null}
+
+        {activePage === "subscription" ? (
+          <div className="space-y-6">
+            <section className="quick-crm-stats">
+              <div className="quick-crm-stat"><span>Current plan</span><b>{user.plan.toUpperCase()}</b><small>{user.plan === "pro" ? "Payment verified" : "Upgrade available"}</small></div>
+              <div className="quick-crm-stat"><span>Monthly price</span><b>$5</b><small>Charged through Razorpay checkout</small></div>
+              <div className="quick-crm-stat"><span>Transactions</span><b>{paymentHistory.length}</b><small>Recorded payment events</small></div>
+              <div className="quick-crm-stat"><span>Daily quota</span><b>{quotaLimit.toLocaleString()}</b><small>{quota?.rateLimitPerMinute ?? 120}/min rate limit</small></div>
+            </section>
+
+            <section className="quick-shell p-5 sm:p-6">
+              <div className="grid gap-6 lg:grid-cols-[1fr_0.8fr] lg:items-center">
+                <div>
+                  <p className="quick-section-label">Billing status</p>
+                  <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">{user.plan === "pro" ? "Pro is active" : "Activate Checkhooks Pro"}</h2>
+                  <p className="quick-muted mt-3 max-w-2xl text-sm leading-6">
+                    Pro unlocks higher receiver quotas, workflow automation, Data Center tables, and account-level request history.
+                  </p>
+                  <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                    <div className="quick-settings-row"><span>Provider</span><b>Razorpay</b></div>
+                    <div className="quick-settings-row"><span>Amount</span><b>$5/mo</b></div>
+                    <div className="quick-settings-row"><span>Status</span><b>{user.plan === "pro" ? "Active" : "Free"}</b></div>
+                  </div>
+                </div>
+                <div className="rounded-[24px] border border-black/10 bg-[#fff7ed] p-5 dark:border-white/10 dark:bg-white/[0.04]">
+                  {user.plan === "pro" ? (
+                    <div>
+                      <div className="inline-flex rounded-full bg-[#dff8ec] px-3 py-1 text-xs font-bold text-[#16845f]">Pro active</div>
+                      <h3 className="mt-4 text-xl font-semibold">No payment action needed.</h3>
+                      <p className="quick-muted mt-2 text-sm leading-6">Your Pro features are enabled. New payments will appear in the transaction list.</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <h3 className="text-xl font-semibold">Ready for more receiver power?</h3>
+                      <p className="quick-muted mt-2 text-sm leading-6">Checkout opens in a secure Razorpay modal and activates Pro after signature verification.</p>
+                      <button type="button" onClick={subscribe} disabled={billingLoading} className="quick-primary mt-5 w-full !m-0"><CreditCard className="h-4 w-4" /> {billingLoading ? "Opening checkout..." : "Activate Pro for $5/mo"}</button>
+                    </div>
+                  )}
+                  <p className="quick-muted mt-4 text-sm">{billingMessage}</p>
+                </div>
+              </div>
+            </section>
+
+            <section className="quick-shell p-5 sm:p-6">
+              <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="quick-section-label">Transactions</p>
+                  <h2 className="mt-2 text-2xl font-semibold">Payment history</h2>
+                  <p className="quick-muted mt-2 text-sm">Invoices are linked when Razorpay returns an invoice for the payment.</p>
+                </div>
+                <button type="button" onClick={loadPaymentHistory} className="quick-secondary">Refresh</button>
+              </div>
+              {paymentHistory.length ? (
+                <div className="space-y-3">
+                  {paymentHistory.map((payment) => (
+                    <article key={payment.id} className="quick-crm-list-item !items-start">
+                      <span className="min-w-0">
+                        <b>{formatPaymentAmount(payment.amount, payment.currency)} · {payment.status}</b>
+                        <small>{new Date(payment.createdAt).toLocaleString()} · {payment.provider} · {payment.method}</small>
+                        <small className="break-all">Order: {payment.orderId || "Not available"} · Payment: {payment.paymentId || "Not available"}</small>
+                      </span>
+                      {payment.invoiceUrl ? (
+                        <a href={payment.invoiceUrl} target="_blank" rel="noreferrer" className="quick-secondary shrink-0">Invoice <ArrowRight className="h-4 w-4" /></a>
+                      ) : (
+                        <strong>No invoice</strong>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="quick-muted rounded-xl border border-dashed border-inherit p-5 text-sm">No payment transactions yet. Activate Pro to create the first Razorpay payment record.</p>
+              )}
+            </section>
+          </div>
         ) : null}
 
         {activePage === "settings" ? (
@@ -1914,7 +2207,7 @@ export default function AppPage() {
                 <div className="quick-settings-row"><span>Plan</span><b>{user.plan.toUpperCase()}</b></div>
                 <div className="quick-settings-row"><span>Price</span><b>${user.planPrice}/month</b></div>
                 <div className="quick-settings-row"><span>Receiver quota</span><b>{quota?.totalLimit ? quota.totalLimit.toLocaleString() : "50,000"} / day</b></div>
-                {user.plan !== "pro" ? <button type="button" onClick={subscribe} className="quick-primary !m-0"><CreditCard className="h-4 w-4" /> Upgrade for $5/mo</button> : <button type="button" className="quick-secondary"><CreditCard className="h-4 w-4" /> Update payment info</button>}
+                <button type="button" onClick={() => setActivePage("subscription")} className="quick-primary !m-0"><CreditCard className="h-4 w-4" /> Manage subscription</button>
               </div>
               <div className="mt-8 border-t border-inherit pt-6">
                 <p className="quick-section-label">Danger zone</p>

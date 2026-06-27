@@ -66,12 +66,13 @@ async function getUsersCollection() {
 
 export async function findUserByEmail(email: string) {
   const collection = await getUsersCollection();
-  return collection?.findOne({ email }) ?? null;
+  if (!collection) throw new Error("Data Collection is required for user accounts.");
+  return collection.findOne({ email });
 }
 
 export async function createUser(email: string, password: string, planPrice: number) {
   const collection = await getUsersCollection();
-  if (!collection) throw new Error("MongoDB is required for user accounts.");
+  if (!collection) throw new Error("Data Collection is required for user accounts.");
 
   const now = new Date();
   const names = getDefaultProfileNames(email);

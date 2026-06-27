@@ -19,13 +19,13 @@ export async function getRedisClient() {
     try {
       const client = createClient({ url });
       client.on("error", (error) => {
-        console.error("Redis client error", error);
+        console.error("Cache Storage client error", error);
       });
       await client.connect();
       globalRedis.__checkhooksRedisClient = client as RedisClientType;
       return globalRedis.__checkhooksRedisClient;
     } catch (error) {
-      console.error("Unable to connect to Redis", error);
+      console.error("Unable to connect to Cache Storage", error);
       globalRedis.__checkhooksRedisPromise = undefined;
       return null;
     }

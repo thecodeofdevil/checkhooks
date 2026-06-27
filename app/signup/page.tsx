@@ -61,11 +61,11 @@ export default function SignupPage() {
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#c4510a]">Start free</p>
           <h1 className="mt-5 max-w-3xl text-5xl font-semibold leading-none tracking-[-0.055em] sm:text-7xl">Create an account for higher-control receiver testing.</h1>
-          <p className="mt-6 max-w-2xl text-lg leading-8 text-[#655f57]">Free users get 10,000 accepted requests per receiver. Sign up to attach receivers to your account and record activities in MongoDB.</p>
+          <p className="mt-6 max-w-2xl text-lg leading-8 text-[#655f57]">Free users get 10,000 accepted requests per receiver. Sign up to attach receivers to your account and record activities in Data Collection.</p>
           <div className="mt-8 grid gap-4 sm:grid-cols-3">
             <div className="rounded-2xl border border-black/10 bg-white p-5"><Zap className="h-5 w-5 text-[#c4510a]" /><h2 className="mt-4 font-semibold">Fast setup</h2><p className="mt-2 text-sm leading-6 text-[#6a645c]">Create a receiver and start testing immediately.</p></div>
-            <div className="rounded-2xl border border-black/10 bg-white p-5"><BarChart3 className="h-5 w-5 text-[#c4510a]" /><h2 className="mt-4 font-semibold">Usage stats</h2><p className="mt-2 text-sm leading-6 text-[#6a645c]">Receiver usage is counted through Redis.</p></div>
-            <div className="rounded-2xl border border-black/10 bg-white p-5"><Database className="h-5 w-5 text-[#c4510a]" /><h2 className="mt-4 font-semibold">Activity log</h2><p className="mt-2 text-sm leading-6 text-[#6a645c]">Account events are saved to MongoDB.</p></div>
+            <div className="rounded-2xl border border-black/10 bg-white p-5"><BarChart3 className="h-5 w-5 text-[#c4510a]" /><h2 className="mt-4 font-semibold">Usage stats</h2><p className="mt-2 text-sm leading-6 text-[#6a645c]">Receiver usage is counted through Cache Storage.</p></div>
+            <div className="rounded-2xl border border-black/10 bg-white p-5"><Database className="h-5 w-5 text-[#c4510a]" /><h2 className="mt-4 font-semibold">Activity log</h2><p className="mt-2 text-sm leading-6 text-[#6a645c]">Account events are saved to Data Collection.</p></div>
           </div>
         </div>
         <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-[0_24px_70px_rgba(31,27,22,0.08)]">

@@ -3,7 +3,7 @@ import type { UserPlan } from "./receiver-store";
 
 type ActivityInput = {
   email: string;
-  type: "login" | "signup" | "logout" | "subscribe" | "receiver_registered" | "receiver_request";
+  type: "login" | "signup" | "logout" | "subscribe" | "receiver_registered" | "receiver_request" | "admin_plan_update";
   plan?: UserPlan;
   receiverId?: string;
   metadata?: Record<string, unknown>;

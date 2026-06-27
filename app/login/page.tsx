@@ -61,10 +61,10 @@ export default function LoginPage() {
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#c4510a]">Account access</p>
           <h1 className="mt-5 max-w-3xl text-5xl font-semibold leading-none tracking-[-0.055em] sm:text-7xl">Login and keep your receiver work connected.</h1>
-          <p className="mt-6 max-w-2xl text-lg leading-8 text-[#655f57]">Signed-in users can attach receivers to a plan, unlock higher limits, and record activity in MongoDB for audit and usage history.</p>
+          <p className="mt-6 max-w-2xl text-lg leading-8 text-[#655f57]">Signed-in users can attach receivers to a plan, unlock higher limits, and record activity in Data Collection for audit and usage history.</p>
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
             <div className="rounded-2xl border border-black/10 bg-white p-5"><LockKeyhole className="h-5 w-5 text-[#c4510a]" /><h2 className="mt-4 font-semibold">Signed session</h2><p className="mt-2 text-sm leading-6 text-[#6a645c]">Uses a secure HTTP-only cookie with a signed session token.</p></div>
-            <div className="rounded-2xl border border-black/10 bg-white p-5"><Mail className="h-5 w-5 text-[#c4510a]" /><h2 className="mt-4 font-semibold">User account</h2><p className="mt-2 text-sm leading-6 text-[#6a645c]">Login with email and password from the MongoDB users table.</p></div>
+            <div className="rounded-2xl border border-black/10 bg-white p-5"><Mail className="h-5 w-5 text-[#c4510a]" /><h2 className="mt-4 font-semibold">User account</h2><p className="mt-2 text-sm leading-6 text-[#6a645c]">Login with email and password from your Data Collection user record.</p></div>
           </div>
         </div>
         <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-[0_24px_70px_rgba(31,27,22,0.08)]">

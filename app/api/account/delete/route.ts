@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 import { clearSessionCookie, getCurrentSession } from "../../../../lib/auth";
 import { deleteUserByEmail } from "../../../../lib/users";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 export async function POST() {
   const session = await getCurrentSession();
   if (!session) return NextResponse.json({ error: "Login required." }, { status: 401 });

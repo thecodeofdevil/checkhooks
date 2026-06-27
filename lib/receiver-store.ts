@@ -375,7 +375,7 @@ export async function checkAndCountReceiverRequest(receiverId: string) {
       const allowed = Number(result[0]) === 1;
       return { allowed, reason: allowed ? null : String(result[1] || "quota") as "quota" | "rate", usage: nextUsage };
     } catch (error) {
-      console.error("Redis quota check failed, falling back to memory counter", error);
+      console.error("Cache Storage quota check failed, falling back to memory counter", error);
     }
   }
 
